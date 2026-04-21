@@ -27,8 +27,14 @@ canvas {
   box-shadow: 0 6px 14px rgba(0,0,0,0.18);
   z-index: 20;
 }
-#startBtn { top: 50%; transform: translate(-50%, -50%); }
-#retryBtn { top: 62%; display: none; }
+#startBtn {
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+#retryBtn {
+  top: 62%;
+  display: none;
+}
 #title {
   position: absolute;
   top: 34%;
@@ -85,19 +91,25 @@ getSound.volume = 0.8;
 // 画像
 const imgBaby = new Image();
 imgBaby.src = "baby.png";
+
 const imgAfro = new Image();
 imgAfro.src = "afro.png";
+
 const imgProf = new Image();
 imgProf.src = "prof.png";
 
 // 状態
 let basket, items, score, speedUp, gameStarted, gameOver;
-let combo, bestCombo, lives, feverTimer, particles, missedCount;
+let combo, bestCombo, lives, feverTimer, particles;
 let spawnInterval = null;
-let frameCount = 0;
 
 function resetGame() {
-  basket = { x: canvas.width / 2 - 60, y: canvas.height - 110, w: 140, h: 24 };
+  basket = {
+    x: canvas.width / 2 - 70,
+    y: canvas.height - 110,
+    w: 140,
+    h: 24
+  };
   items = [];
   particles = [];
   score = 0;
@@ -106,39 +118,16 @@ function resetGame() {
   bestCombo = 0;
   lives = 3;
   feverTimer = 0;
-  missedCount = 0;
   gameStarted = false;
   gameOver = false;
-  frameCount = 0;
   retryBtn.style.display = "none";
   titleEl.style.display = "block";
   subtitleEl.style.display = "block";
   startBtn.style.display = "block";
+  bgm.pause();
+  bgm.currentTime = 0;
 }
 resetGame();
-
-function startGame() {
-  resetGame();
-  gameStarted = true;
-  titleEl.style.display = "none";
-  subtitleEl.style.display = "none";
-  startBtn.style.display = "none";
-  bgm.currentTime = 0;
-  bgm.play().catch(() => {});
-}
-
-startBtn.addEventListener("click", startGame);
-retryBtn.addEventListener("click", startGame);
-
-// 操作
-document.addEventListener("mousemove", e => {
-  basket.x = e.clientX - basket.w / 2;
-});
-document.addEventListener("touchmove", e => {
-  if (e.touches.length > 0) {
-    basket.x = e.touches[0].clientX - basket.w / 2;
-  }
-}, { passive: true });
 
 // 粒
 function addParticles(x, y, count, color = "#ff6b81") {
@@ -176,6 +165,52 @@ function drawParticles() {
   ctx.globalAlpha = 1;
 }
 
+// 音をスマホで解放
+function unlockSounds() {
+  const p1 = bgm.play().then(() => {
+    bgm.pause();
+    bgm.currentTime = 0;
+  }).catch(() => {});
+
+  const p2 = getSound.play().then(() => {
+    getSound.pause();
+    getSound.currentTime = 0;
+  }).catch(() => {});
+
+  return Promise.allSettled([p1, p2]);
+}
+
+async function startGame() {
+  await unlockSounds();
+  gameStarted = true;
+  gameOver = false;
+  titleEl.style.display = "none";
+  subtitleEl.style.display = "none";
+  startBtn.style.display = "none";
+  retryBtn.style.display = "none";
+
+  bgm.currentTime = 0;
+  bgm.play().catch(() => {});
+}
+
+startBtn.addEventListener("click", startGame);
+retryBtn.addEventListener("click", () => {
+  resetGame();
+  startGame();
+});
+
+// 操作
+document.addEventListener("mousemove", e => {
+  basket.x = e.clientX - basket.w / 2;
+});
+
+document.addEventListener("touchmove", e => {
+  if (e.touches.length > 0) {
+    basket.x = e.touches[0].clientX - basket.w / 2;
+  }
+}, { passive: true });
+
+// アイテム生成
 function spawnItem() {
   if (!gameStarted || gameOver) return;
 
@@ -254,7 +289,6 @@ function catchItem(item) {
   }
 
   if (feverTimer > 0) gain *= 2;
-
   score += gain;
 
   getSound.currentTime = 0;
@@ -264,7 +298,6 @@ function catchItem(item) {
 function missItem() {
   combo = 0;
   lives--;
-  missedCount++;
   addParticles(basket.x + basket.w / 2, basket.y, 12, "#999");
 
   if (lives <= 0) {
@@ -298,13 +331,14 @@ function drawHUD() {
   if (feverTimer > 0) {
     ctx.fillStyle = "#ff3d6e";
     ctx.font = "bold 30px sans-serif";
-    ctx.fillText("FEVER x2!", canvas.width - 180, 42);
+    ctx.fillText("FEVER x2!", canvas.width - 190, 42);
   }
 }
 
 function drawGameOver() {
   if (!gameOver) return;
-  ctx.fillStyle = "rgba(255,255,255,0.75)";
+
+  ctx.fillStyle = "rgba(255,255,255,0.78)";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   ctx.fillStyle = "#ff4f79";
@@ -323,7 +357,6 @@ function drawGameOver() {
 }
 
 function update() {
-  frameCount++;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   drawBackgroundEffect();
 
@@ -366,7 +399,7 @@ function update() {
   requestAnimationFrame(update);
 }
 
-// どんどん少しずつ速く、そして出現間隔も詰める
+// 生成開始
 function startSpawner() {
   if (spawnInterval) clearInterval(spawnInterval);
   spawnInterval = setInterval(() => {
@@ -375,7 +408,6 @@ function startSpawner() {
 }
 startSpawner();
 
-update();
 </script>
 </body>
 </html>
