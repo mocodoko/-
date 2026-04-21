@@ -1,16 +1,225 @@
 <!DOCTYPE html>
-<html>
-<body style="margin:0; overflow:hidden;">
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>つかまえろ！</title>
 
-<img id="img" src="baba.png" style="width:120px; position:absolute; top:200px; left:200px;">
+<style>
+body{
+  margin:0;
+  overflow:hidden;
+  background:#fff5f8;
+  font-family:sans-serif;
+}
+
+#ui{
+  position:absolute;
+  top:10px;
+  left:50%;
+  transform:translateX(-50%);
+  text-align:center;
+}
+
+#score,#time{
+  background:#fff;
+  padding:8px 16px;
+  border-radius:20px;
+  margin-top:5px;
+}
+
+#startBtn{
+  position:absolute;
+  top:45%;
+  left:50%;
+  transform:translate(-50%,-50%);
+  padding:20px 30px;
+  font-size:26px;
+  background:#ff6b81;
+  color:#fff;
+  border:none;
+  border-radius:15px;
+}
+
+#end{
+  position:absolute;
+  top:40%;
+  left:50%;
+  transform:translate(-50%,-50%);
+  font-size:40px;
+  color:#ff4f79;
+  display:none;
+}
+
+canvas{display:block;}
+</style>
+</head>
+
+<body>
+
+<div id="ui">
+  <div id="score">0</div>
+  <div id="time">180</div>
+</div>
+
+<div id="end">おわり！✨</div>
+
+<button id="startBtn">スタート！</button>
+<canvas id="game"></canvas>
+
+<audio id="sound" src="get.mp3"></audio>
 
 <script>
-const img = document.getElementById("img");
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
+const scoreEl=document.getElementById("score");
+const timeEl=document.getElementById("time");
+const startBtn=document.getElementById("startBtn");
+const endEl=document.getElementById("end");
+const sound=document.getElementById("sound");
 
-img.onclick = () => {
-  img.style.left = Math.random()*300 + "px";
-  img.style.top = Math.random()*500 + "px";
+canvas.width=innerWidth;
+canvas.height=innerHeight;
+
+const imgs=["baba.png","kei.png","nagomi.png","oyako.png","yukinago.png","karan.png","sauaka.png","uedake.png","reiko.png"];
+
+let items=[];
+let effects=[];
+let score=0;
+let time=180;
+let started=false;
+
+// ===== 出現 =====
+function spawn(){
+  const img=new Image();
+  img.src=imgs[Math.floor(Math.random()*imgs.length)];
+
+  items.push({
+    img,
+    x:Math.random()*(canvas.width-100),
+    y:Math.random()*(canvas.height-100),
+    size:Math.max(70,120-score*0.2),
+    speed:1+score*0.03
+  });
+}
+
+// ===== エフェクト =====
+function effect(x,y){
+  for(let i=0;i<15;i++){
+    effects.push({
+      x,y,
+      vx:(Math.random()-0.5)*6,
+      vy:(Math.random()-0.5)*6,
+      life:20
+    });
+  }
+}
+
+// ===== 動き =====
+function move(){
+  items.forEach(i=>{
+    i.x+=(Math.random()-0.5)*i.speed*5;
+    i.y+=(Math.random()-0.5)*i.speed*5;
+  });
+}
+
+// ===== 逃げる =====
+function flee(px,py){
+  items.forEach(i=>{
+    const dx=i.x-px;
+    const dy=i.y-py;
+    const dist=Math.sqrt(dx*dx+dy*dy)||1;
+
+    if(dist<120){
+      i.x+=dx/dist*25;
+      i.y+=dy/dist*25;
+    }
+  });
+}
+
+// ===== タップ =====
+function catchItem(px,py){
+  items.forEach((i,index)=>{
+    if(px>i.x && px<i.x+i.size && py>i.y && py<i.y+i.size){
+
+      score++;
+      scoreEl.textContent=score;
+
+      sound.currentTime=0;
+      sound.play();
+
+      effect(i.x+i.size/2,i.y+i.size/2);
+
+      items.splice(index,1);
+      spawn();
+    }
+  });
+}
+
+// ===== タイマー =====
+setInterval(()=>{
+  if(started && time>0){
+    time--;
+    timeEl.textContent=time;
+  }
+
+  if(time===0){
+    started=false;
+    endEl.style.display="block";
+  }
+},1000);
+
+// ===== 操作 =====
+canvas.onclick=e=>{
+  if(started)catchItem(e.clientX,e.clientY);
 };
+
+canvas.addEventListener("mousemove",e=>{
+  if(started)flee(e.clientX,e.clientY);
+});
+
+canvas.addEventListener("touchstart",e=>{
+  const t=e.touches[0];
+  if(started)catchItem(t.clientX,t.clientY);
+});
+
+canvas.addEventListener("touchmove",e=>{
+  const t=e.touches[0];
+  if(started)flee(t.clientX,t.clientY);
+});
+
+// ===== 描画 =====
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  items.forEach(i=>{
+    if(i.img.complete){
+      ctx.drawImage(i.img,i.x,i.y,i.size,i.size);
+    }
+  });
+
+  effects.forEach((e,index)=>{
+    ctx.fillStyle="gold";
+    ctx.fillRect(e.x,e.y,4,4);
+    e.x+=e.vx;
+    e.y+=e.vy;
+    e.life--;
+    if(e.life<=0) effects.splice(index,1);
+  });
+
+  requestAnimationFrame(draw);
+}
+
+// ===== スタート =====
+startBtn.onclick=()=>{
+  sound.play().then(()=>{sound.pause();sound.currentTime=0});
+  startBtn.style.display="none";
+  started=true;
+
+  for(let i=0;i<3;i++) spawn();
+};
+
+draw();
 </script>
 
 </body>
